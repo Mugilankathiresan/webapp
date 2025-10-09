@@ -1,0 +1,8 @@
+region = "us-east-1"
+key_name = ""
+my_ip_cidr = "0.0.0.0/0"
+github_owner = ""
+github_repo_name = ""
+github_branch = "main"
+github_oauth_token = ""
+project_prefix = "tfdemo"
