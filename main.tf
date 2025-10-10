@@ -419,4 +419,3 @@ resource "aws_codepipeline" "pipeline" {
   }
 }
 
-new
