@@ -25,11 +25,38 @@ variable "my_ip_cidr" {
   default     = "0.0.0.0/0"
 }
 
-variable "asg_min" { type = number default = 2 }
-variable "asg_max" { type = number default = 4 }
-variable "asg_desired" { type = number default = 2 }
 
-variable "github_owner" { type = string default = "" }
-variable "github_repo_name" { type = string default = "" }
-variable "github_branch" { type = string default = "main" }
-variable "github_oauth_token" { type = string default = "" sensitive = true }
+variable "asg_min" {
+  type    = number
+  default = 2
+}
+
+variable "asg_max" { 
+  type = number 
+  default = 4
+ }
+variable "asg_desired" { 
+  type = number
+   default = 2
+ }
+
+
+variable "github_owner" {
+  type    = string
+  default = ""
+}
+
+variable "github_repo_name" {
+  type    = string
+  default = ""
+}
+
+variable "github_branch" {
+  type    = string
+  default = "main"
+}
+variable "github_oauth_token" {
+  type      = string
+  default   = ""
+  sensitive = true
+}

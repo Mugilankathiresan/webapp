@@ -62,8 +62,15 @@ resource "aws_security_group" "alb_sg" {
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
-  egress { from_port = 0; to_port = 0; protocol = "-1"; cidr_blocks = ["0.0.0.0/0"] }
+
+egress {
+  from_port   = 0
+  to_port     = 0
+  protocol    = "-1"
+  cidr_blocks = ["0.0.0.0/0"]
 }
+ }
+
 
 resource "aws_security_group" "ec2_sg" {
   name        = "tf-ec2-sg"
@@ -82,8 +89,15 @@ resource "aws_security_group" "ec2_sg" {
     protocol    = "tcp"
     cidr_blocks = [var.my_ip_cidr]
   }
-  egress { from_port = 0; to_port = 0; protocol = "-1"; cidr_blocks = ["0.0.0.0/0"] }
+  
+egress {
+  from_port   = 0
+  to_port     = 0
+  protocol    = "-1"
+  cidr_blocks = ["0.0.0.0/0"]
 }
+ }
+
 
 # --- ALB + Target Group + Listener ---
 resource "aws_lb" "alb" {
@@ -213,15 +227,34 @@ resource "aws_autoscaling_group" "web_asg" {
 }
 
 # --- S3 bucket for pipeline artifacts ---
-resource "aws_s3_bucket" "artifacts" {
-  bucket = "${var.project_prefix}-artifacts-${random_id.bucket_suffix.hex}"
-  acl    = "private"
-  force_destroy = true
-  tags = { Name = "tf-artifacts" }
-}
-
 resource "random_id" "bucket_suffix" {
   byte_length = 4
+}
+
+resource "aws_s3_bucket" "artifacts" {
+  bucket        = "artifacts-${random_id.bucket_suffix.hex}"
+  force_destroy = true
+
+  tags = {
+    Name = "tf-artifacts"
+  }
+}
+
+resource "aws_s3_bucket_ownership_controls" "ownership" {
+  bucket = aws_s3_bucket.artifacts.id
+
+  rule {
+    object_ownership = "BucketOwnerEnforced"
+  }
+}
+
+resource "aws_s3_bucket_public_access_block" "public_access" {
+  bucket = aws_s3_bucket.artifacts.id
+
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
 }
 
 # --- IAM roles for CodeBuild, CodeDeploy, CodePipeline (demo uses AdministratorAccess for simplicity) ---
@@ -263,14 +296,14 @@ resource "aws_iam_role_policy_attachment" "codedeploy_admin" {
 
 # --- CodeDeploy app and deployment group (select instances by tag) ---
 resource "aws_codedeploy_app" "app" {
-  name = "${var.project_prefix}-codedeploy-app"
+  name             = "${var.project_prefix}-codedeploy-app"
   compute_platform = "Server"
 }
 
-resource "aws_codedeploy_deployment_group" "dg" {
-  app_name            = aws_codedeploy_app.app.name
-  deployment_group_name = "${var.project_prefix}-dg"
-  service_role_arn    = aws_iam_role.codedeploy_service_role.arn
+resource "aws_codedeploy_deployment_group" "deployment_group" {
+  app_name              = aws_codedeploy_app.app.name
+  deployment_group_name = "${var.project_prefix}-deployment-group"
+  service_role_arn      = aws_iam_role.codedeploy_service_role.arn
 
   ec2_tag_set {
     ec2_tag_filter {
@@ -280,7 +313,6 @@ resource "aws_codedeploy_deployment_group" "dg" {
     }
   }
 
-  autoscaling_groups = []
   deployment_style {
     deployment_type   = "IN_PLACE"
     deployment_option = "WITHOUT_TRAFFIC_CONTROL"
@@ -290,6 +322,8 @@ resource "aws_codedeploy_deployment_group" "dg" {
     enabled = true
     events  = ["DEPLOYMENT_FAILURE"]
   }
+
+  depends_on = [aws_codedeploy_app.app]
 }
 
 # --- CodeBuild project (source & artifacts will be CODEPIPELINE) ---
@@ -312,7 +346,7 @@ resource "aws_codebuild_project" "project" {
     type = "CODEPIPELINE"
   }
 
-  badges_enabled = false
+  badge_enabled = false
 }
 
 # --- CodePipeline connecting GitHub -> CodeBuild -> CodeDeploy ---
@@ -327,54 +361,60 @@ resource "aws_codepipeline" "pipeline" {
 
   stage {
     name = "Source"
+
     action {
       name             = "Source"
       category         = "Source"
-      owner            = "ThirdParty"
+      owner            = "AWS"
       provider         = "GitHub"
       version          = "1"
       output_artifacts = ["source_output"]
+      run_order        = 1
+
       configuration = {
         Owner      = var.github_owner
         Repo       = var.github_repo_name
         Branch     = var.github_branch
         OAuthToken = var.github_oauth_token
       }
-      run_order = 1
     }
   }
 
   stage {
     name = "Build"
+
     action {
       name             = "Build"
       category         = "Build"
       owner            = "AWS"
       provider         = "CodeBuild"
+      version          = "1"
       input_artifacts  = ["source_output"]
       output_artifacts = ["build_output"]
-      version          = "1"
+      run_order        = 1
+
       configuration = {
         ProjectName = aws_codebuild_project.project.name
       }
-      run_order = 1
     }
   }
 
   stage {
     name = "Deploy"
+
     action {
       name            = "Deploy"
       category        = "Deploy"
       owner           = "AWS"
       provider        = "CodeDeploy"
-      input_artifacts = ["build_output"]
       version         = "1"
+      input_artifacts = ["build_output"]
+      run_order       = 1
+
       configuration = {
         ApplicationName     = aws_codedeploy_app.app.name
-        DeploymentGroupName = aws_codedeploy_deployment_group.dg.deployment_group_name
+        DeploymentGroupName = aws_codedeploy_deployment_group.deployment_group.deployment_group_name
       }
-      run_order = 1
     }
   }
 }
