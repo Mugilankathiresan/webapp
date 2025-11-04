@@ -9,3 +9,19 @@ hooks:
     - location: scripts/start_server.sh
       timeout: 120
       runas: root
+
+
+      Provisioned a highly available web application infrastructure using Terraform with ALB, Auto Scaling,
+EC2 across multiple AZs, CI/CD pipeline via GitHub, CodeBuild, CodeDeploy, and integrated serverless
+Lambda-S3-DynamoDB workflow with security and cost optimization.
+
+ 2. EKS Cluster Setup (with HA + DR)
+EKS with managed node groups in 2 AZs
+Use Terraform AWS EKS module
+Enable EBS CSI driver for persistent volumes
+Use IRSA (IAM Roles for Service Accounts)
+Install Kubernetes add-ons via Terraform (e.g., CoreDNS, kube-proxy)
+3. Microservices Deployment
+Deploy 2 sample microservices (e.g., user + order service) using kubectl via Terraform or Helm provider
+Use Ingress (ALB Ingress Controller or NGINX)
+Add Pod Disruption Budgets (PDBs) and HPA
